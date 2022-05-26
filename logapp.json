@@ -1,0 +1,219 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {},
+    "functions": [],
+    "variables": {},
+    "resources": [
+     {
+         "name": "logicApp1",
+         "type": "Microsoft.Logic/workflows",
+         "apiVersion": "2017-07-01",
+         "location": "[resourceGroup().location]",
+         "properties": {
+             "definition": {
+                 "$schema": "https://schema.management.azure.com/schemas/2016-06-01/Microsoft.Logic.json",
+                 "contentVersion": "1.0.0.0",
+                 "parameters": {},
+                 "triggers": {
+                "manual": {
+                    "type": "Request",
+                    "kind": "Http",
+                    "inputs": {
+                        "schema": {
+                            "properties": {
+                                "runId": {
+                                    "type": "string"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    }
+                }
+            },
+            "actions": {
+                "Failure_Scenario": {
+                    "actions": {
+                        "Response": {
+                            "runAfter": {},
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "body": "@body('Get_a_pipeline_run')",
+                                "statusCode": 451
+                            }
+                        }
+                    },
+                    "runAfter": {
+                        "Get_a_pipeline_run": [
+                            "Succeeded"
+                        ]
+                    },
+                    "expression": {
+                        "and": [
+                            {
+                                "equals": [
+                                    "@body('Get_a_pipeline_run')?['status']",
+                                    "Failed"
+                                ]
+                            },
+                            {
+                                "not": {
+                                    "contains": [
+                                        "@body('Get_a_pipeline_run')?['message']",
+                                        "NOPOSRECORDFOUND"
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "type": "If"
+                },
+                "Get_a_pipeline_run": {
+                    "runAfter": {
+                        "Set_RunID": [
+                            "Succeeded"
+                        ]
+                    },
+                    "type": "ApiConnection",
+                    "inputs": {
+                        "host": {
+                            "connection": {
+                                "name": "@parameters('$connections')['azuredatafactory_2']['connectionId']"
+                            }
+                        },
+                        "method": "get",
+                        "path": "/subscriptions/@{encodeURIComponent('70fd855b-4ca1-41a2-88ac-72a4354299f3')}/resourcegroups/@{encodeURIComponent('IamLegend')}/providers/Microsoft.DataFactory/factories/@{encodeURIComponent('adf-Devogin-dev')}/pipelineRuns/@{encodeURIComponent(variables('RunID'))}",
+                        "queries": {
+                            "x-ms-api-version": "2017-09-01-preview"
+                        }
+                    }
+                },
+                "In-progress_response": {
+                    "actions": {
+                        "Response_2": {
+                            "runAfter": {},
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "body": "@body('Get_a_pipeline_run')",
+                                "statusCode": 431
+                            }
+                        }
+                    },
+                    "runAfter": {
+                        "Get_a_pipeline_run": [
+                            "Succeeded"
+                        ]
+                    },
+                    "expression": {
+                        "and": [
+                            {
+                                "equals": [
+                                    "@body('Get_a_pipeline_run')?['status']",
+                                    "InProgress"
+                                ]
+                            }
+                        ]
+                    },
+                    "type": "If"
+                },
+                "Initialize_RunID": {
+                    "runAfter": {},
+                    "type": "InitializeVariable",
+                    "inputs": {
+                        "variables": [
+                            {
+                                "name": "RunID",
+                                "type": "string",
+                                "value": "@triggerBody()?['runId']"
+                            }
+                        ]
+                    }
+                },
+                "Job_Success": {
+                    "actions": {
+                        "Success_Response": {
+                            "runAfter": {},
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "body": "@body('Get_a_pipeline_run')",
+                                "statusCode": 201
+                            }
+                        }
+                    },
+                    "runAfter": {
+                        "Get_a_pipeline_run": [
+                            "Succeeded"
+                        ]
+                    },
+                    "expression": {
+                        "and": [
+                            {
+                                "contains": [
+                                    "@body('Get_a_pipeline_run')?['status']",
+                                    "Succeeded"
+                                ]
+                            }
+                        ]
+                    },
+                    "type": "If"
+                },
+                "No_Records_Found_Status": {
+                    "actions": {
+                        "Norecords_response": {
+                            "runAfter": {},
+                            "type": "Response",
+                            "kind": "Http",
+                            "inputs": {
+                                "body": "@body('Get_a_pipeline_run')",
+                                "statusCode": 441
+                            }
+                        }
+                    },
+                    "runAfter": {
+                        "Get_a_pipeline_run": [
+                            "Succeeded"
+                        ]
+                    },
+                    "expression": {
+                        "and": [
+                            {
+                                "contains": [
+                                    "@body('Get_a_pipeline_run')?['status']",
+                                    "Failed"
+                                ]
+                            },
+                            {
+                                "contains": [
+                                    "@body('Get_a_pipeline_run')?['message']",
+                                    "NOPOSRECORDFOUND"
+                                ]
+                            }
+                        ]
+                    },
+                    "type": "If"
+                },
+                "Set_RunID": {
+                    "runAfter": {
+                        "Initialize_RunID": [
+                            "Succeeded"
+                        ]
+                    },
+                    "type": "SetVariable",
+                    "inputs": {
+                        "name": "RunID",
+                        "value": "@triggerBody()?['runId']"
+                    }
+                }
+            },
+                 
+                 "outputs": {}
+             },
+             "parameters": {}
+         }
+     }
+    ],
+    "outputs": {}
+}
